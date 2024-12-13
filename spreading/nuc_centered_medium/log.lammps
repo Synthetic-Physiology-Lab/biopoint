@@ -1,0 +1,360 @@
+LAMMPS (29 Oct 2020)
+#~~~~~~~~~~~~~~~~~~~~~~~~
+# one SCE cell randomly initialized
+# test sce atom type
+# test sce ext potential
+#~~~~~~~~~~~~~~~~~~~~~~~~
+
+#+++++++++++++++++++
+# INITIALIZATION
+#+++++++++++++++++++
+# units in um, ug, s
+units      cell
+dimension  3
+newton     off
+processors * * *
+boundary   m m m
+atom_style semEM
+compute_modify thermo_temp dynamic yes
+atom_modify map yes
+
+#+++++++++++++++++++
+# PAIRWISE NEIGHBOUR LIST
+#+++++++++++++++++++
+neighbor      0.45235 bin
+neigh_modify  delay 5
+
+lattice     diamond 1
+Lattice spacing in x,y,z = 1.0000000 1.0000000 1.0000000
+region regBox block -70 70 -30 30 -20 20 units box
+create_box 6 regBox
+Created orthogonal box = (-70.000000 -30.000000 -20.000000) to (70.000000 30.000000 20.000000)
+  2 by 1 by 1 MPI processor grid
+create_atoms  1 random 1000 76354675 regBox
+Created 1000 atoms
+  create_atoms CPU = 0.000 seconds
+set           region regBox cell 1 poly 1
+Setting atom values ...
+  1000 settings made for cell
+  1000 settings made for poly
+variable atype atomfile type.atom
+variable posx atomfile posx.atom
+variable posy atomfile posy.atom
+variable posz atomfile posz.atom
+variable velx atomfile velx.atom
+variable vely atomfile vely.atom
+variable velz atomfile velz.atom
+set atom * type v_atype
+Setting atom values ...
+  1000 settings made for type
+set atom * x v_posx
+Setting atom values ...
+  1000 settings made for x
+set atom * y v_posy
+Setting atom values ...
+  1000 settings made for y
+set atom * z v_posz
+Setting atom values ...
+  1000 settings made for z
+set atom * vx v_velx
+Setting atom values ...
+  1000 settings made for vx
+set atom * vy v_vely
+Setting atom values ...
+  1000 settings made for vy
+set atom * vz v_velz
+Setting atom values ...
+  1000 settings made for vz
+set type 1 cellpart 0
+Setting atom values ...
+  900 settings made for cellpart
+set type 2 cellpart 2
+Setting atom values ...
+  100 settings made for cellpart
+
+mass 1 3.10172e-06
+mass 2 3.10172e-06
+mass 3 4e-03
+mass 4 4e-03
+mass 5 4e-03
+mass 6 4e-03
+
+#+++++++++++ Create Sustrate ++++++++++
+
+lattice bcc 2
+Lattice spacing in x,y,z = 2.0000000 2.0000000 2.0000000
+region regSubstrate block -50 50 -50 50 -15.3 -15 units box
+#region regSubstrate cylinder z 0 0 20 -15.3 -15 units box
+#region regoutECM block -18 18 -6 6 -15.3 -15 side out units box
+#region regGlassECM block -70 70 -30 30 -16 -15 units box
+#region regGlass intersect 2 regoutECM regGlassECM
+change_box all x final -50 50 y final -50 50 z final -20 20
+Changing box ...
+  orthogonal box = (-100.00000 -30.000000 -20.000000) to (100.00000 30.000000 20.000000)
+  orthogonal box = (-100.00000 -100.00000 -20.000000) to (100.00000 100.00000 20.000000)
+  orthogonal box = (-100.00000 -100.00000 -40.000000) to (100.00000 100.00000 40.000000)
+create_atoms 3 region regSubstrate basis 1 3
+Created 2500 atoms
+  create_atoms CPU = 0.001 seconds
+#create_atoms 4 region regGlass basis 2 4
+#set type 3 cellpart 4
+set type 4 cellpart 5
+Setting atom values ...
+  0 settings made for cellpart
+variable    cellelem atom "type == 1 || type == 2"
+group cell_group dynamic all var cellelem
+dynamic group cell_group defined
+group nucleus type 2
+100 atoms in group nucleus
+group cyto type 1
+900 atoms in group cyto
+group ecm_glass type 3 4
+2500 atoms in group ecm_glass
+
+
+#+++++++++++++++++++
+# DEFINE POTENTIALS
+#+++++++++++++++++++
+# SEM potential with global cutoff 2.5*r_eq
+pair_style    hybrid semEMp 4.5235 semNucM 4.5235 lj/cut 9.5235
+pair_coeff    1 1 semEMp 141955.5 56782.2 2 2 2 2 1.8094 5.5267 4.5235
+pair_coeff    1 2 semNucM 141955.5 2 2 1.8094 5.5267 0 4.523525
+pair_coeff    2 2 semEMp 567822 0 2 2 2 2 1.8094 5.5267 4.5235
+pair_coeff    1 3 lj/cut 50000 5 15
+pair_coeff    2 3 none
+pair_coeff    3 3 none
+pair_coeff    1 4 lj/cut 50000 5 5
+pair_coeff    2 4 none
+pair_coeff    3 4 none
+pair_coeff    4 4 none
+pair_coeff    1 5 none
+pair_coeff    2 5 none
+pair_coeff    3 5 none
+pair_coeff    4 5 none
+pair_coeff    5 5 none
+pair_coeff    1 6 none
+pair_coeff    2 6 none
+pair_coeff    3 6 none
+pair_coeff    4 6 none
+pair_coeff    5 6 none
+pair_coeff    6 6 none
+
+timestep 0.001
+
+compute centreofmass cell_group com
+variable atom_cmx atom c_centreofmass[1]
+variable atom_cmy atom c_centreofmass[2]
+variable atom_cmz atom c_centreofmass[3]
+compute nuc_centreofmass nucleus com
+variable nuc_atom_cmx atom c_nuc_centreofmass[1]
+variable nuc_atom_cmy atom c_nuc_centreofmass[2]
+variable nuc_atom_cmz atom c_nuc_centreofmass[3]
+variable fnucx atom 2*3.10172e-00*((v_atom_cmx-v_nuc_atom_cmx)-vx*dt)/(dt*dt)
+variable fnucy atom 2*3.10172e-00*((v_atom_cmy-v_nuc_atom_cmy)-vy*dt)/(dt*dt)
+variable fnucz atom 2*3.10172e-00*((v_atom_cmz-v_nuc_atom_cmz)-vz*dt)/(dt*dt)
+
+#+++++++++++++++++++
+# DEFINE FIXES
+#+++++++++++++++++++
+# Do BD using Langevin fix for random fluctuations
+# args = T T tau rseed
+fix  1 cyto langevin 57943.7 57943.7 2.06781e-10 138278
+# BD requires same tau as for Langevin
+fix  2 cyto bd 2.06781e-10
+fix  3 nucleus langevin 57943.7 57943.7 1.033905e-10 872678
+fix  4 nucleus bd 1.033905e-10
+fix 5 nucleus addforce v_fnucx v_fnucy 0
+#+++++++++++++++++++
+# RUN IT
+#+++++++++++++++++++
+
+thermo 1000
+dump 1 cell_group xyzSemEM 1000 cell.xyz
+dump 2 ecm_glass xyzSemEM 100000 ecm_glass.xyz
+#dump 3 cell_group custom 100000 dump.atom_info id type x y z vx vy vz
+run 100000
+Neighbor list info ...
+  update every 1 steps, delay 5 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 15.45235
+  ghost atom cutoff = 15.45235
+  binsize = 7.726175, bins = 26 26 11
+  4 neighbor lists, perpetual/occasional/extra = 4 0 0
+  (1) pair semEMp, perpetual, skip from (4)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (2) pair semNucM, perpetual, skip from (4)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (3) pair lj/cut, perpetual, skip from (4)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (4) neighbor class addition, perpetual
+      attributes: half, newton off
+      pair build: half/bin/newtoff
+      stencil: half/bin/3d/newtoff
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 8.201 | 8.205 | 8.208 Mbytes
+Step Temp E_pair E_mol TotEng Press Volume 
+       0  0.038876873 -1.1353252e+09            0 -1.1353252e+09   -38.260883      3200000 
+    1000  0.032815203 -1.2717954e+09            0 -1.2717954e+09   -64.994948      3200000 
+    2000  0.042826883 -1.3419851e+09            0 -1.3419851e+09   -74.587691      3200000 
+    3000  0.059567145 -1.3893271e+09            0 -1.389327e+09   -84.867429      3200000 
+    4000  0.046751591 -1.4381516e+09            0 -1.4381516e+09   -87.405541      3200000 
+    5000  0.055645413 -1.4710337e+09            0 -1.4710337e+09   -91.192456      3200000 
+    6000  0.046743113 -1.5136342e+09            0 -1.5136341e+09   -98.432438      3200000 
+    7000  0.056423266 -1.5387779e+09            0 -1.5387779e+09   -104.25986      3200000 
+    8000  0.066246773 -1.5598586e+09            0 -1.5598586e+09   -111.76954      3200000 
+    9000  0.060665827 -1.5821384e+09            0 -1.5821384e+09   -114.22766      3200000 
+   10000  0.054333211 -1.6029456e+09            0 -1.6029455e+09   -119.78145      3200000 
+   11000  0.057274422 -1.6106182e+09            0 -1.6106182e+09   -122.62186      3200000 
+   12000  0.061589256 -1.6228612e+09            0 -1.6228612e+09   -125.98226      3200000 
+   13000  0.050549827 -1.6408838e+09            0 -1.6408838e+09   -130.31408      3200000 
+   14000  0.048711767 -1.6562631e+09            0 -1.6562631e+09   -133.26951      3200000 
+   15000  0.049825986 -1.6632048e+09            0 -1.6632048e+09   -136.99386      3200000 
+   16000  0.045764957 -1.6747611e+09            0 -1.6747611e+09   -136.86364      3200000 
+   17000  0.051164715 -1.6850762e+09            0 -1.6850762e+09   -142.52086      3200000 
+   18000   0.04881279 -1.6911819e+09            0 -1.6911818e+09   -144.88116      3200000 
+   19000  0.053928436 -1.6939586e+09            0 -1.6939586e+09   -147.73197      3200000 
+   20000  0.052240162 -1.6973686e+09            0 -1.6973686e+09   -149.66733      3200000 
+   21000  0.052792742 -1.7038174e+09            0 -1.7038174e+09   -151.13216      3200000 
+   22000  0.048497917 -1.7099024e+09            0 -1.7099024e+09   -152.73325      3200000 
+   23000   0.04487966 -1.7147066e+09            0 -1.7147066e+09   -151.14995      3200000 
+   24000  0.044102384 -1.7172327e+09            0 -1.7172327e+09   -153.09324      3200000 
+   25000  0.046764168 -1.7161444e+09            0 -1.7161444e+09   -152.12777      3200000 
+   26000  0.043161583 -1.718073e+09            0 -1.718073e+09   -154.04171      3200000 
+   27000  0.041584792 -1.7188338e+09            0 -1.7188338e+09   -153.74692      3200000 
+   28000  0.039897458 -1.7191592e+09            0 -1.7191592e+09   -153.86634      3200000 
+   29000  0.046485909 -1.7167538e+09            0 -1.7167538e+09   -153.92391      3200000 
+   30000  0.048693249 -1.7168545e+09            0 -1.7168545e+09   -153.83395      3200000 
+   31000  0.044474601 -1.719337e+09            0 -1.719337e+09   -155.78294      3200000 
+   32000   0.04624393 -1.7209233e+09            0 -1.7209233e+09   -155.02976      3200000 
+   33000    0.0446146 -1.7217549e+09            0 -1.7217549e+09   -155.23457      3200000 
+   34000  0.048679444 -1.720549e+09            0 -1.720549e+09   -156.52051      3200000 
+   35000  0.042304281 -1.7221691e+09            0 -1.7221691e+09   -157.16175      3200000 
+   36000  0.049410303 -1.7201647e+09            0 -1.7201646e+09   -156.73392      3200000 
+   37000  0.048134677 -1.7206144e+09            0 -1.7206144e+09   -155.09435      3200000 
+   38000  0.045925065 -1.7213362e+09            0 -1.7213362e+09   -154.89734      3200000 
+   39000  0.042825896 -1.7221642e+09            0 -1.7221642e+09   -155.85996      3200000 
+   40000  0.050112253 -1.7197188e+09            0 -1.7197188e+09   -156.00883      3200000 
+   41000  0.048570271 -1.7203714e+09            0 -1.7203714e+09   -155.36788      3200000 
+   42000  0.048694289 -1.7202688e+09            0 -1.7202688e+09   -154.33407      3200000 
+   43000  0.047081194 -1.7209769e+09            0 -1.7209769e+09   -156.37751      3200000 
+   44000  0.046360453 -1.7212274e+09            0 -1.7212274e+09   -155.09674      3200000 
+   45000  0.049069745 -1.7200803e+09            0 -1.7200803e+09   -155.76795      3200000 
+   46000  0.047552623 -1.7205722e+09            0 -1.7205722e+09   -156.96406      3200000 
+   47000  0.048399042 -1.7207022e+09            0 -1.7207022e+09   -154.98101      3200000 
+   48000  0.049084887 -1.7205249e+09            0 -1.7205249e+09   -155.46822      3200000 
+   49000  0.040584696 -1.7231082e+09            0 -1.7231082e+09   -155.77972      3200000 
+   50000  0.046336007 -1.7209189e+09            0 -1.7209189e+09   -154.92006      3200000 
+   51000  0.041848302 -1.7224382e+09            0 -1.7224382e+09    -156.0683      3200000 
+   52000  0.049730605 -1.7206758e+09            0 -1.7206758e+09   -154.90793      3200000 
+   53000  0.047484109 -1.7216023e+09            0 -1.7216023e+09   -155.65173      3200000 
+   54000   0.04710165 -1.7222501e+09            0 -1.7222501e+09   -155.96401      3200000 
+   55000  0.043528536 -1.723621e+09            0 -1.723621e+09   -155.76418      3200000 
+   56000  0.040178591 -1.7263789e+09            0 -1.7263789e+09   -157.95024      3200000 
+   57000  0.046256051 -1.7244297e+09            0 -1.7244297e+09   -158.02714      3200000 
+   58000  0.044624426 -1.7252307e+09            0 -1.7252307e+09   -157.25952      3200000 
+   59000  0.040374174 -1.7264111e+09            0 -1.7264111e+09   -159.20221      3200000 
+   60000  0.045875367 -1.7243393e+09            0 -1.7243393e+09   -157.77315      3200000 
+   61000  0.045057939 -1.7246536e+09            0 -1.7246536e+09   -158.35792      3200000 
+   62000   0.04759664 -1.7240076e+09            0 -1.7240076e+09   -156.20415      3200000 
+   63000  0.047465666 -1.7242943e+09            0 -1.7242943e+09   -156.84118      3200000 
+   64000  0.042261205 -1.7258241e+09            0 -1.7258241e+09   -158.25822      3200000 
+   65000  0.045895501 -1.7249113e+09            0 -1.7249113e+09   -158.48448      3200000 
+   66000  0.046959836 -1.7244152e+09            0 -1.7244152e+09   -157.70454      3200000 
+   67000   0.04505792 -1.7248044e+09            0 -1.7248044e+09   -156.14298      3200000 
+   68000  0.040869585 -1.7264923e+09            0 -1.7264923e+09      -157.38      3200000 
+   69000  0.047699314 -1.7240629e+09            0 -1.7240629e+09    -157.6592      3200000 
+   70000  0.043424983 -1.725626e+09            0 -1.725626e+09   -158.81844      3200000 
+   71000  0.044725641 -1.7251574e+09            0 -1.7251574e+09   -158.89498      3200000 
+   72000  0.045487982 -1.7249162e+09            0 -1.7249162e+09    -158.0738      3200000 
+   73000  0.044733227 -1.725135e+09            0 -1.725135e+09    -157.0639      3200000 
+   74000  0.050777899 -1.7231973e+09            0 -1.7231973e+09   -157.06157      3200000 
+   75000  0.044427978 -1.7258003e+09            0 -1.7258003e+09   -159.03905      3200000 
+   76000  0.045158891 -1.7249191e+09            0 -1.7249191e+09   -158.07756      3200000 
+   77000  0.049299882 -1.723384e+09            0 -1.723384e+09   -157.81069      3200000 
+   78000   0.04527853 -1.7251868e+09            0 -1.7251868e+09   -157.74705      3200000 
+   79000  0.044407327 -1.7251296e+09            0 -1.7251296e+09   -159.24393      3200000 
+   80000  0.047065674 -1.7245776e+09            0 -1.7245776e+09   -156.76902      3200000 
+   81000  0.043320814 -1.7255215e+09            0 -1.7255215e+09   -158.18486      3200000 
+   82000  0.042210619 -1.7259192e+09            0 -1.7259192e+09   -157.41702      3200000 
+   83000  0.048171788 -1.7235811e+09            0 -1.7235811e+09     -158.209      3200000 
+   84000  0.046352609 -1.724662e+09            0 -1.724662e+09   -157.95267      3200000 
+   85000  0.042576365 -1.7257709e+09            0 -1.7257709e+09   -158.38834      3200000 
+   86000  0.041005418 -1.7261969e+09            0 -1.7261969e+09   -157.08206      3200000 
+   87000  0.039542729 -1.7269225e+09            0 -1.7269225e+09   -158.55022      3200000 
+   88000  0.042725353 -1.7261091e+09            0 -1.7261091e+09   -157.79328      3200000 
+   89000  0.039424252 -1.7268193e+09            0 -1.7268193e+09   -158.42559      3200000 
+   90000  0.045445191 -1.724099e+09            0 -1.724099e+09   -157.24076      3200000 
+   91000  0.046415853 -1.724071e+09            0 -1.724071e+09   -157.71049      3200000 
+   92000   0.04055061 -1.7267016e+09            0 -1.7267016e+09   -159.15024      3200000 
+   93000  0.041151856 -1.7263967e+09            0 -1.7263967e+09   -158.65664      3200000 
+   94000  0.046800623 -1.7241983e+09            0 -1.7241983e+09   -157.81722      3200000 
+   95000  0.048963301 -1.7241216e+09            0 -1.7241216e+09   -157.90883      3200000 
+   96000  0.044596967 -1.7253624e+09            0 -1.7253624e+09   -158.04586      3200000 
+   97000  0.044543356 -1.725425e+09            0 -1.725425e+09   -158.08931      3200000 
+   98000  0.044113027 -1.7256183e+09            0 -1.7256183e+09   -159.14075      3200000 
+   99000  0.045873846 -1.7249019e+09            0 -1.7249019e+09   -158.10939      3200000 
+  100000  0.044786238 -1.7251419e+09            0 -1.7251419e+09   -160.54503      3200000 
+Loop time of 459.825 on 2 procs for 100000 steps with 3500 atoms
+
+81.0% CPU use with 2 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 156.78     | 192.06     | 227.34     | 254.6 | 41.77
+Neigh   | 104.66     | 120.95     | 137.23     | 148.1 | 26.30
+Comm    | 13.981     | 14.136     | 14.292     |   4.1 |  3.07
+Output  | 0.20137    | 0.20932    | 0.21727    |   1.7 |  0.05
+Modify  | 77.812     | 129.29     | 180.77     | 452.8 | 28.12
+Other   |            | 3.179      |            |       |  0.69
+
+Nlocal:        1750.00 ave        1967 max        1533 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Nghost:        851.000 ave        1019 max         683 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Neighs:        16063.5 ave       23099 max        9028 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+
+Total # of neighbors = 32127
+Ave neighs/atom = 9.1791429
+Neighbor list builds = 19997
+Dangerous builds = 19994
+write_restart cell_mult_nuc.restart
+System init for write_restart ...
+Neighbor list info ...
+  update every 1 steps, delay 5 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 15.45235
+  ghost atom cutoff = 15.45235
+  binsize = 7.726175, bins = 26 26 11
+  4 neighbor lists, perpetual/occasional/extra = 4 0 0
+  (1) pair semEMp, perpetual, skip from (4)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (2) pair semNucM, perpetual, skip from (4)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (3) pair lj/cut, perpetual, skip from (4)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (4) neighbor class addition, perpetual
+      attributes: half, newton off
+      pair build: half/bin/newtoff
+      stencil: half/bin/3d/newtoff
+      bin: standard
+Total wall time: 0:07:39

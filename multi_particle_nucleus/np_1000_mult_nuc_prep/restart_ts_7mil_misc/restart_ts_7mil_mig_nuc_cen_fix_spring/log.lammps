@@ -1,0 +1,282 @@
+LAMMPS (29 Oct 2020)
+#~~~~~~~~~~~~~~~~~~~~~~~~
+# one SCE cell randomly initialized
+# test sce atom type
+# test sce ext potential
+#~~~~~~~~~~~~~~~~~~~~~~~~
+
+#+++++++++++++++++++
+# INITIALIZATION
+#+++++++++++++++++++
+# units in um, ug, s
+units      cell
+dimension  3
+newton     off
+processors * * *
+boundary   m m m
+atom_style semEM
+compute_modify thermo_temp dynamic yes
+
+#+++++++++++++++++++
+# PAIRWISE NEIGHBOUR LIST
+#+++++++++++++++++++
+neighbor      0.45235 bin
+neigh_modify  delay 5
+
+#+++++++++++++++++++
+# CREATE GEOMETRY
+# - could also be read from file
+#   using read_date/read_restart
+# - here:
+#	- define lattice
+#	- define a region with id: box
+#	- create a simulation box from defined region
+#	- create 1000 random atoms in cylindrical region
+#	- assign cell ID  1 and poly = 0 to atom
+#+++++++++++++++++++
+read_restart  cysce900_nusce100_ts7m.restart
+Reading restart file ...
+  restart file = 29 Oct 2020, LAMMPS = 29 Oct 2020
+WARNING: Restart file used different # of processors: 4 vs. 1 (../read_restart.cpp:697)
+  restoring atom style semEM from restart
+  orthogonal box = (-10.581864 -9.3317042 -9.7414843) to (8.2810841 8.8201516 8.2915400)
+  1 by 1 by 1 MPI processor grid
+  restoring pair style hybrid from restart
+  1000 atoms
+  read_restart CPU = 0.000 seconds
+group nucleus type 2
+100 atoms in group nucleus
+group cytoplasm subtract all nucleus
+900 atoms in group cytoplasm
+set type 2 cellpart 2
+Setting atom values ...
+  100 settings made for cellpart
+#+++++++++++++++++++
+# INIT ATOMS MASS FOR ALL TYPES
+#+++++++++++++++++++
+mass          1 3.10172e-06
+mass          2 3.10172e-06
+
+#+++++++++++++++++++
+# DEFINE POTENTIALS
+#+++++++++++++++++++
+# SEM potential with global cutoff 2.5*r_eq
+pair_style    hybrid semEMp 4.5235 semNucM 4.5235
+# args = TYPE1 TYPE2 u0_intra u0_inter rho_intra rho_inter alpha_intra alpha_inter r_eq
+# args (semEMp)  = TYPE1 TYPE2 u0_intra u0_inter rho_intra rho_inter alpha_intra alpha_inter r_eq R_3d/r_eq cutoff
+# args (semNucM) = TYPE1 TYPE2 u0 rho alpha r_eq R_3d/r_eq n_sft cutoff
+#pair_coeff    1 1 semextp 47318.5 18927.4 2 2 2 2 1.8094
+pair_coeff    1 1 semEMp 47318.5 18927.4 2 2 2 2 1.8094 5.5267 4.5235
+pair_coeff    1 2 semNucM 47318.5 2 2 1.8094 5.5267 0 4.523525
+pair_coeff    2 2 semEMp 100000 18927.4 2 2 2 2 1.8094 5.5267 4.5235
+
+compute centreofmass all com
+thermo_style custom step etotal c_centreofmass[*]
+variable comx equal c_centreofmass[1]
+variable comy equal c_centreofmass[2]
+variable comz equal c_centreofmass[3]
+
+#+++++++++++++++++++
+# DEFINE FIXES
+#+++++++++++++++++++
+# Do BD using Langevin fix for random fluctuations
+# args = T T tau rseed
+fix  1 all langevin 57943.7 57943.7 6.20343e-10 8279
+# BD requires same tau as for Langevin
+fix  2 all bd 6.20343e-10
+# args = Nevery nSCEperCell tG0 tGI tM1 tM2 tGI/(nSCE*Tp) LISTOFcellID
+#fix  3 all sem_proliferate 1 1000 0 200 0 0 0.5 1
+# args = Nevery nSCEperCell CP_P tG0 tGI tM1 tM2 polyPRamp CP_M polyMRamp CP_Q LISTOFcellID
+fix  6 all sem_PMN 1 1000 10 0 200 50 50 1 100 1 0 1
+#fix 7 nucleus move variable v_comx v_comy v_comz NULL NULL NULL
+#fix 7 nucleus recenter v_comx v_comy v_comz
+#fix 7 nucleus spring tether 100 v_comx v_comy v_comz 0.1
+#displace_atoms nucleus move v_comx v_comy v_comz
+fix 7 all spring couple nucleus 500000 0 0 0 0.5
+
+#+++++++++++++++++++
+# RUN IT
+#+++++++++++++++++++
+timestep 0.001
+thermo 1000
+dump 1 all xyzSemEM 1000 dumpGrowN.xyz
+run 100000
+Neighbor list info ...
+  update every 1 steps, delay 5 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 4.975875
+  ghost atom cutoff = 4.975875
+  binsize = 2.4879375, bins = 8 8 8
+  3 neighbor lists, perpetual/occasional/extra = 3 0 0
+  (1) pair semEMp, perpetual, skip from (3)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (2) pair semNucM, perpetual, skip from (3)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (3) neighbor class addition, perpetual
+      attributes: half, newton off
+      pair build: half/bin/newtoff
+      stencil: half/bin/3d/newtoff
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 5.758 | 5.758 | 5.758 Mbytes
+Step TotEng c_centreofmass[1] c_centreofmass[2] c_centreofmass[3] 
+ 7000000 -3.2631001e+08   -1.1190255  -0.28117744   -0.6480992 
+ 7001000 -3.2434325e+08   -1.2146087   -0.2863331  -0.68547585 
+ 7002000 -3.240634e+08   -1.3692126  -0.25563198  -0.70096264 
+ 7003000 -3.244804e+08   -1.4808701  -0.29374551  -0.75700655 
+ 7004000 -3.2505076e+08   -1.5975871  -0.27193722  -0.75931716 
+ 7005000 -3.2367614e+08   -1.7225765  -0.30050119  -0.76297587 
+ 7006000 -3.2461427e+08   -1.8381233  -0.32352364  -0.76484189 
+ 7007000 -3.2405125e+08   -1.9266079  -0.31866907  -0.78269878 
+ 7008000 -3.2508353e+08   -2.0564275  -0.28589756  -0.78778174 
+ 7009000 -3.2437194e+08   -2.1773302  -0.24193646  -0.80619273 
+ 7010000 -3.2529866e+08   -2.2891409  -0.20317873    -0.828843 
+ 7011000 -3.240553e+08   -2.3866757  -0.21009108   -0.7987464 
+ 7012000 -3.2507639e+08   -2.5156127  -0.16851872  -0.83565363 
+ 7013000 -3.2558059e+08   -2.6392367  -0.15770235  -0.85610147 
+ 7014000 -3.2665196e+08   -2.7415875  -0.14512328  -0.87210321 
+ 7015000 -3.2474944e+08   -2.8571058  -0.15151551  -0.90234679 
+ 7016000 -3.2462856e+08   -2.9710109  -0.17230163  -0.93794391 
+ 7017000 -3.2586056e+08   -3.0531855  -0.18902148  -0.97397614 
+ 7018000 -3.2575086e+08   -3.1467893  -0.20896291  -0.97002399 
+ 7019000 -3.2664965e+08   -3.2568093  -0.20772342  -0.94479879 
+ 7020000 -3.256792e+08   -3.3382055  -0.24411354  -0.91301446 
+ 7021000 -3.2661078e+08   -3.3957125  -0.24843875   -0.9131747 
+ 7022000 -3.2710488e+08   -3.4810588  -0.28521504  -0.93369078 
+ 7023000 -3.2659829e+08   -3.6059416  -0.29395926  -0.92736148 
+ 7024000 -3.2603563e+08   -3.7137843   -0.2820816  -0.94793214 
+ 7025000 -3.2626968e+08   -3.8012903  -0.27506676  -0.95582501 
+ 7026000 -3.2689487e+08   -3.9050209  -0.30806548  -0.97159417 
+ 7027000 -3.2709908e+08   -3.9813085  -0.30312226   -1.0164009 
+ 7028000 -3.2662463e+08   -4.0685228  -0.33033322   -1.0441262 
+ 7029000 -3.2569445e+08   -4.1728773  -0.34842377   -1.0510544 
+ 7030000 -3.2532939e+08   -4.2960969  -0.37381268  -0.99460775 
+ 7031000 -3.2615676e+08   -4.3911794  -0.35778401  -0.98644678 
+ 7032000 -3.2488117e+08   -4.4973231  -0.35433945  -0.98257155 
+ 7033000 -3.2663461e+08   -4.6137312  -0.36646606  -0.98095005 
+ 7034000 -3.250722e+08   -4.7347409  -0.36084555  -0.99664716 
+ 7035000 -3.2631467e+08   -4.8117741  -0.34682015  -0.99181029 
+ 7036000 -3.2547762e+08   -4.8706991  -0.37822481   -1.0194869 
+ 7037000 -3.2682218e+08    -4.959756  -0.40132767  -0.99467698 
+ 7038000 -3.2746892e+08   -5.0690929  -0.40394132   -1.0008011 
+ 7039000 -3.2668224e+08   -5.1899947   -0.3904274   -1.0350434 
+ 7040000 -3.2608898e+08   -5.2971684  -0.37283888   -1.0335327 
+ 7041000 -3.2619406e+08   -5.3788735  -0.36743727   -1.0553186 
+ 7042000 -3.265105e+08   -5.4927658  -0.36883665   -1.0395336 
+ 7043000 -3.2621869e+08   -5.6071495  -0.40129338   -1.0691771 
+ 7044000 -3.2686969e+08   -5.6781855  -0.42373212    -1.018312 
+ 7045000 -3.2680109e+08   -5.7626845  -0.40459542   -1.0182608 
+ 7046000 -3.267219e+08   -5.8350672  -0.42857987   -1.0292987 
+ 7047000 -3.2703716e+08   -5.9359285  -0.46572717   -1.0615966 
+ 7048000 -3.2732587e+08   -6.0087721  -0.48624565   -1.0124355 
+ 7049000 -3.2707126e+08   -6.1037829  -0.48499198   -1.0410772 
+ 7050000 -3.2588133e+08   -6.1860261  -0.47539885   -1.0477709 
+ 7051000 -3.2703394e+08    -6.295686  -0.50997827   -1.0305442 
+ 7052000 -3.2600904e+08   -6.4025309  -0.51051531   -1.0247642 
+ 7053000 -3.2505061e+08   -6.5359269  -0.49949859   -1.0348752 
+ 7054000 -3.2650911e+08   -6.6103629  -0.49790929   -1.0142409 
+ 7055000 -3.2718201e+08   -6.7207749  -0.49673645   -1.0142707 
+ 7056000 -3.2620611e+08   -6.8196741  -0.51144361  -0.96864526 
+ 7057000 -3.2719866e+08   -6.9511864  -0.53114141  -0.98731309 
+ 7058000 -3.2705914e+08     -7.05872  -0.59077247   -1.0377774 
+ 7059000 -3.2647655e+08   -7.1606181  -0.56811132   -1.0277557 
+ 7060000 -3.2693131e+08   -7.2591009  -0.55535965    -1.095039 
+ 7061000 -3.2637923e+08   -7.3274584  -0.53513108   -1.0718855 
+ 7062000 -3.2684075e+08   -7.3717561  -0.56350935   -1.1214657 
+ 7063000 -3.2681688e+08   -7.4666041  -0.58603271   -1.0778575 
+ 7064000 -3.2681344e+08   -7.5601678  -0.59976873   -1.0504134 
+ 7065000 -3.2736615e+08   -7.6545344  -0.61161419   -1.0824529 
+ 7066000 -3.2741586e+08   -7.7599517  -0.65856899   -1.0953341 
+ 7067000 -3.2828198e+08   -7.8393439  -0.63841585   -1.1409328 
+ 7068000 -3.2854438e+08   -7.9301514  -0.61889037   -1.1179775 
+ 7069000 -3.2730085e+08    -8.006713  -0.61668375   -1.1364241 
+ 7070000 -3.2744899e+08   -8.1042118   -0.6324854   -1.1498392 
+ 7071000 -3.273967e+08   -8.1981084  -0.60368745   -1.1408282 
+ 7072000 -3.2660569e+08    -8.267549  -0.64037812   -1.1310785 
+ 7073000 -3.2742373e+08   -8.3752497  -0.63637876    -1.140101 
+ 7074000 -3.2666673e+08   -8.4402015  -0.67012067   -1.1091882 
+ 7075000 -3.2673787e+08   -8.5176935  -0.68033833   -1.0938681 
+ 7076000 -3.2728516e+08   -8.5961268  -0.71233391   -1.1347003 
+ 7077000 -3.2662948e+08   -8.6921322  -0.67981971   -1.1260396 
+ 7078000 -3.2693334e+08   -8.7699928  -0.68277021   -1.1234761 
+ 7079000 -3.2776851e+08   -8.8452364  -0.66905934   -1.1199215 
+ 7080000 -3.270437e+08   -8.9311767  -0.67028804   -1.1531503 
+ 7081000 -3.2599733e+08   -8.9805272  -0.64722251   -1.1922244 
+ 7082000 -3.2712325e+08   -9.0805094  -0.72007274    -1.147813 
+ 7083000 -3.2631586e+08   -9.1884014  -0.77678607   -1.1194975 
+ 7084000 -3.2578825e+08   -9.3280904   -0.7525687   -1.1364975 
+ 7085000 -3.2648953e+08   -9.3922699  -0.76893338    -1.143385 
+ 7086000 -3.2629381e+08     -9.51257  -0.80471229   -1.1448461 
+ 7087000 -3.2556267e+08   -9.6275086  -0.82778447   -1.1632857 
+ 7088000 -3.269643e+08    -9.764087   -0.8576929     -1.21662 
+ 7089000 -3.2629941e+08   -9.8425912  -0.87586756    -1.234838 
+ 7090000 -3.2553077e+08   -9.9578941  -0.85669888   -1.2721243 
+ 7091000 -3.2664949e+08    -10.08296  -0.82611425   -1.2473255 
+ 7092000 -3.2660966e+08   -10.175084   -0.8155051   -1.2257587 
+ 7093000 -3.2612173e+08   -10.271384     -0.82058   -1.2055787 
+ 7094000 -3.2624209e+08   -10.371158  -0.85356386   -1.2178363 
+ 7095000 -3.266668e+08   -10.443211  -0.88873589   -1.1437502 
+ 7096000 -3.2680407e+08   -10.487867  -0.88742786   -1.0804635 
+ 7097000 -3.2598186e+08   -10.576033  -0.90572301   -1.1138185 
+ 7098000 -3.2641687e+08   -10.654714  -0.91102917   -1.1080638 
+ 7099000 -3.2689154e+08   -10.734377  -0.88926071   -1.0893347 
+ 7100000 -3.2697109e+08   -10.818402  -0.87610565   -1.1171547 
+Loop time of 134.78 on 1 procs for 100000 steps with 1001 atoms
+
+100.0% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 96.154     | 96.154     | 96.154     |   0.0 | 71.34
+Neigh   | 33.676     | 33.676     | 33.676     |   0.0 | 24.99
+Comm    | 0.050702   | 0.050702   | 0.050702   |   0.0 |  0.04
+Output  | 0.11499    | 0.11499    | 0.11499    |   0.0 |  0.09
+Modify  | 4.5576     | 4.5576     | 4.5576     |   0.0 |  3.38
+Other   |            | 0.2266     |            |       |  0.17
+
+Nlocal:        1001.00 ave        1001 max        1001 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:        0.00000 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:        47941.0 ave       47941 max       47941 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 47941
+Ave neighs/atom = 47.893107
+Neighbor list builds = 20999
+Dangerous builds = 19001
+
+#+++++++++++++++++++
+# STORE RESTART AND DO DIAGS
+#+++++++++++++++++++
+write_restart cysce900_nusce100_ts7m_mig.restart
+System init for write_restart ...
+Neighbor list info ...
+  update every 1 steps, delay 5 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 4.975875
+  ghost atom cutoff = 4.975875
+  binsize = 2.4879375, bins = 11 8 8
+  3 neighbor lists, perpetual/occasional/extra = 3 0 0
+  (1) pair semEMp, perpetual, skip from (3)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (2) pair semNucM, perpetual, skip from (3)
+      attributes: half, newton off
+      pair build: skip
+      stencil: none
+      bin: none
+  (3) neighbor class addition, perpetual
+      attributes: half, newton off
+      pair build: half/bin/newtoff
+      stencil: half/bin/3d/newtoff
+      bin: standard
+Total wall time: 0:02:14
