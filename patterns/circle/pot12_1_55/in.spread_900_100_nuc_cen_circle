@@ -1,0 +1,132 @@
+#~~~~~~~~~~~~~~~~~~~~~~~~
+# one SCE cell randomly initialized
+# test sce atom type
+# test sce ext potential
+#~~~~~~~~~~~~~~~~~~~~~~~~
+
+#+++++++++++++++++++
+# INITIALIZATION
+#+++++++++++++++++++
+# units in um, ug, s
+units      cell
+dimension  3
+newton     off
+processors * * *
+boundary   m m m
+atom_style semEM
+compute_modify thermo_temp dynamic yes
+atom_modify map yes
+
+#+++++++++++++++++++
+# PAIRWISE NEIGHBOUR LIST
+#+++++++++++++++++++
+neighbor      0.45235 bin
+neigh_modify  delay 5
+
+lattice     diamond 1
+region regBox block -70 70 -30 30 -20 20 units box
+create_box 6 regBox
+create_atoms  1 random 1000 76354675 regBox
+set           region regBox cell 1 poly 1
+variable atype atomfile type.atom
+variable posx atomfile posx.atom
+variable posy atomfile posy.atom
+variable posz atomfile posz.atom
+variable velx atomfile velx.atom
+variable vely atomfile vely.atom
+variable velz atomfile velz.atom
+set atom * type v_atype
+set atom * x v_posx
+set atom * y v_posy
+set atom * z v_posz
+set atom * vx v_velx
+set atom * vy v_vely
+set atom * vz v_velz
+set type 1 cellpart 0
+set type 2 cellpart 2
+
+mass 1 3.10172e-06
+mass 2 3.10172e-06
+mass 3 4e-03
+mass 4 4e-03
+mass 5 4e-03
+mass 6 4e-03
+
+#+++++++++++ Create Sustrate ++++++++++
+
+lattice bcc 1 
+#region regSubstrate block -42 42 -6 6 -15.3 -15 units box
+region regSubstrate cylinder z 0 0 16.3 -15.3 -15 units box
+region regoutECM cylinder z 0 0 16.3 -15.3 -15 side out units box
+region regGlassECM block -30 30 -30 30 -16 -15 units box
+region regGlass intersect 2 regoutECM regGlassECM
+change_box all x final -30 30 y final -30 30 z final -20 20
+create_atoms 3 region regSubstrate basis 1 3
+create_atoms 4 region regGlass basis 2 4
+set type 3 cellpart 4
+set type 4 cellpart 5
+#variable    cellelem atom "type == 1 || type == 2"
+#group cell_group dynamic all var cellelem
+group cell_group type 1 2
+group nucleus type 2
+group cyto type 1
+group ecm_glass type 3 4
+
+#+++++++++++++++++++
+# DEFINE POTENTIALS
+#+++++++++++++++++++
+# SEM potential with global cutoff 2.5*r_eq
+pair_style    hybrid semEMp 4.522520848255137 semNucM 4.522520848255137 lj/cut 9.522520848255137
+pair_coeff    1 1 semEMp 114014.4148165376 45605.76592661504 2 2 2 2 1.809008339302055 5.527890492676315 4.522520848255137
+pair_coeff    1 2 semNucM 176722.342965633 2 2 1.809008339302055 5.527890492676315 0 4.522520848255137
+pair_coeff    2 2 semEMp 425477.8367841409 0.0 2 2 2 2 1.809008339302055 5.527890492676315 4.522520848255137
+pair_coeff    1 3 lj/cut 60000 5 15
+pair_coeff    2 3 none
+pair_coeff    3 3 none
+pair_coeff    1 4 lj/cut 50000 5 5
+pair_coeff    2 4 none
+pair_coeff    3 4 none
+pair_coeff    4 4 none
+pair_coeff    1 5 none
+pair_coeff    2 5 none
+pair_coeff    3 5 none
+pair_coeff    4 5 none
+pair_coeff    5 5 none
+pair_coeff    1 6 none
+pair_coeff    2 6 none
+pair_coeff    3 6 none
+pair_coeff    4 6 none
+pair_coeff    5 6 none
+pair_coeff    6 6 none
+
+timestep 0.001
+compute centreofmass cell_group com
+variable atom_cmx atom c_centreofmass[1] 
+variable atom_cmy atom c_centreofmass[2]
+variable atom_cmz atom c_centreofmass[3]
+compute nuc_centreofmass nucleus com
+variable nuc_atom_cmx atom c_nuc_centreofmass[1] 
+variable nuc_atom_cmy atom c_nuc_centreofmass[2]
+variable nuc_atom_cmz atom c_nuc_centreofmass[3]
+variable fnucx atom 2*3.10172e-00*((v_atom_cmx-v_nuc_atom_cmx)-vx*dt)/(dt*dt)
+variable fnucy atom 2*3.10172e-00*((v_atom_cmy-v_nuc_atom_cmy)-vy*dt)/(dt*dt)
+variable fnucz atom 2*3.10172e-00*((v_atom_cmz-v_nuc_atom_cmz)-vz*dt)/(dt*dt)
+#+++++++++++++++++++
+# DEFINE FIXES
+#+++++++++++++++++++
+fix  1 cyto langevin 57943.7 57943.7 6.221784385976299e-11 104235
+# BD requires same tau as for Langevin
+fix  2 cyto bd 6.221784385976299e-11
+fix  3 nucleus langevin 57943.7 57943.7 1.5494800964594704e-11 398213
+fix  4 nucleus bd 1.5494800964594704e-11
+fix 5 nucleus addforce v_fnucx v_fnucy 0
+#+++++++++++++++++++
+# RUN IT
+#+++++++++++++++++++
+
+thermo 1000
+dump 1 cell_group xyzSemEM 1000 cell.xyz
+dump 2 ecm_glass xyzSemEM 100000 ecm_glass.xyz
+#dump 3 cell_group custom 100000 dump.atom_info id type x y z vx vy vz
+#write_restart cell_ecm_spread_mult_nuc.restart
+run 100000
