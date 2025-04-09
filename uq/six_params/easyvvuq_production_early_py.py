@@ -101,7 +101,7 @@ campaign = uq.Campaign(name='sem', params=params, actions=actions, work_dir='/ho
 print('Campaign done')
 
 print('Sampling')
-campaign.set_sampler(uq.sampling.PCESampler(vary=vary, polynomial_order=2))
+campaign.set_sampler(uq.sampling.PCESampler(vary=vary, polynomial_order=4, regression=True))
 print('Collate')
 campaign.execute().collate()
 
