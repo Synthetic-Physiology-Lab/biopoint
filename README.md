@@ -10,7 +10,18 @@ All required Python packages are summarized in the `requirements.txt` file.
 
 # Scripts
 
-TODO
+* `multi_particle_nucleus`: Phase-separation of nuclear particles.
+  U+1F534 TODO: explain the folder structure, clean up files that are not needed (mp4s, lammps output, RDF output etc)
+* `indentation`:
+  U+1F534 What is the folder here good for? Clean up output that is not needed
+* `uq`:
+  U+1F534 add documentation how to run the scripts (which order). The script was wrong, please make sure that the results in the paper are correct (polynomial order 2 but 4 in the paper)
+* `optimization`:
+  U+1F534 Explain scripts (which order to run), add reference to Hobson paper here in README 
+* `patterns`:
+U+1F534 
+* `spreading`:
+U+1F534 Explain scripts. I could run the code out of the box but here actually another version of LAMMPS-SEM should be used, right? I.e., the migration version instead of the proliferation version
 
 ## Citation
 
