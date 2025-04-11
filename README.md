@@ -3,6 +3,7 @@
 # Installation
 
 Install SEM2 as described here: https://github.com/Synthetic-Physiology-Lab/sem2.git
+** Make sure that you install the version that is used for migration. **
 
 We used Ovito Pro for visualization: https://www.ovito.org/
 
