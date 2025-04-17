@@ -1,0 +1,141 @@
+    -------------------------------------Multi-particle-nucleus, white surface visualization-----------------
+from ovito.data import *
+from ovito.modifiers import *
+from ovito.vis import *
+from ovito.io import *
+#import matplotlib.cm
+
+def modify(frame: int, data: DataCollection):
+    data.particles_.particle_types_.type_by_id_(1).radius = 0.905
+    data.particles_.particle_types_.type_by_id_(2).radius = 0.905
+    for cell_id in set(data.particles["Molecule Type"]):
+        data.apply(ExpressionSelectionModifier(expression = f"MoleculeType == {cell_id}"))
+        # Construct surface mesh:
+        mod = ConstructSurfaceModifier(
+            method = ConstructSurfaceModifier.Method.GaussianDensity, 
+            only_selected=True,
+            radius_scaling = 1.0,
+            grid_resolution = 100, 
+            isolevel = 0.69)
+        mod.vis.surface_transparency = 0.5
+        data.apply(mod)
+    
+    data.apply(ClearSelectionModifier()) 
+       
+    data.apply(ExpressionSelectionModifier(expression = f"ParticleType == 1"))
+    # Delete Particles:
+    mod1 = DeleteSelectedModifier()
+    data.apply(mod1)
+    data.apply(ClearSelectionModifier())
+    
+    -----------------------------------ECM-glass-visualization-----------------------------------------------
+from ovito.data import *
+from ovito.modifiers import *
+
+def modify(frame: int, data: DataCollection):
+    
+    # This user-defined modifier function gets automatically called by OVITO whenever the data pipeline is newly computed.
+    # It receives two arguments from the pipeline system:
+    # 
+    #    frame - The current animation frame number at which the pipeline is being evaluated.
+    #    data  - The DataCollection passed in from the pipeline system. 
+    #            The function may modify the data stored in this DataCollection as needed.
+    # 
+    # What follows is an example code snippet doing nothing aside from printing the current 
+    # list of particle properties to the log window. Use it as a starting point for developing 
+    # your own data modification or analysis functions. 
+    
+    if data.particles != None:
+        print("There are %i particles with the following properties:" % data.particles.count)
+        for property_name in data.particles.keys():
+            print("  '%s'" % property_name)
+    data.particles_.particle_types_.type_by_id_(4).color = (0.6, 1, 1)
+    data.particles_.particle_types_.type_by_id_(3).radius = 1
+    data.particles_.particle_types_.type_by_id_(4).radius = 1
+    data.apply(ExpressionSelectionModifier(expression = f"ParticleType == 3"))
+    # Construct surface mesh:
+    mod = ConstructSurfaceModifier(
+        method = ConstructSurfaceModifier.Method.GaussianDensity, 
+        only_selected=True,
+        radius_scaling = 1.0,
+        grid_resolution = 100, 
+        isolevel = 0.69)
+    data.apply(mod)
+    for i, mesh in enumerate(data.surfaces):
+        mesh_vis = data.surfaces[mesh].vis
+        mesh_vis.surface_color = (0.6, 1, 0)
+    data.apply(ExpressionSelectionModifier(expression = f"ParticleType == 3"))
+    # Delete Particles:
+    mod1 = DeleteSelectedModifier()
+    data.apply(mod1)
+    data.apply(ClearSelectionModifier())
+        
+    --------------------------------------------------------Projected surface area ---------------------------------------------------
+from ovito.data import *
+
+def xyproj_triarea(p1, p2, p3):
+    x1, y1 = p1 
+    x2, y2 = p2
+    x3, y3 = p3
+    return abs((0.5)*(x1*(y2-y3)+x2*(y3-y1)+x3*(y1-y2)))
+
+def modify(frame: int, data: DataCollection):
+    #Option 1
+    surface = data.surfaces['surface']
+    vertices = surface.get_vertices()
+    abs_area = 0.0
+    for face in surface.get_faces():
+        v1, v2, v3 = vertices[face]
+        abs_area += xyproj_triarea(v1[:2], v2[:2], v3[:2])
+    print(abs_area/2.)
+    
+    #Option 2
+    zcut = -9.6
+    abs_area = 0.0
+    sel = data.surfaces['surface_'].faces_.create_property("Selection")
+    for i, face in enumerate(surface.get_faces()):
+        v1, v2, v3 = vertices[face]
+        if v1[2] < zcut and v2[2] < zcut and v3[2] < zcut :
+            sel[i] = 1
+            abs_area += xyproj_triarea(v1[:2], v2[:2], v3[:2])
+    print(abs_area)
+    data.attributes["Proj Area"] = abs_area
+----------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------- Nuclear shear and volumetric strain -----------------------------------------------------------------
+from ovito.data import *
+from ovito.modifiers import AtomicStrainModifier
+
+def modify(frame: int, data: DataCollection):
+    
+    sh_strain = 0
+    count = 0
+    for shear_strain in set(data.particles["Shear Strain"]):
+        sh_strain += shear_strain
+        count += 1
+    data.attributes['nuc sh strn'] = sh_strain
+    vol_strain = 0
+    for volumetric_strain in set(data.particles["Volumetric Strain"]):
+        vol_strain += volumetric_strain
+    data.attributes['nuc vol strn'] = vol_strain
+    print(sh_strain)
+    print(count)
+    print(vol_strain)
+----------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------- Map particles to regions ------------------------------------------------------------
+from ovito.data import *
+import numpy as np 
+
+def modify(frame: int, data: DataCollection):
+    
+    # https://www.ovito.org/docs/current/python/modules/ovito_data.html#ovito.data.SurfaceMesh.locate_point
+    mesh = data.surfaces['surface']
+    particle_region = data.particles_.create_property("Region", components = 1, data = 0)
+    for i, pos in enumerate(data.particles.positions):
+        yield i/data.particles.count
+        particle_region[i] = mesh.locate_point(pos)
+        
+    particle_count = np.bincount(data.particles["Region"][data.particles.particle_types == 1], minlength = mesh.regions.count)    
+    for region in range(mesh.regions.count):
+        print(f"Region ID {region} contains {particle_count[region]} particles.")
+----------------------------------------------------------------------------------------------------------------------------------------------
+
