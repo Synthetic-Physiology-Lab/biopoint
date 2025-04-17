@@ -28,13 +28,13 @@ region regBox block -70 70 -30 30 -20 20 units box
 create_box 6 regBox
 create_atoms  1 random 1000 76354675 regBox
 set           region regBox cell 1 poly 1
-variable atype atomfile type.atom
-variable posx atomfile posx.atom
-variable posy atomfile posy.atom
-variable posz atomfile posz.atom
-variable velx atomfile velx.atom
-variable vely atomfile vely.atom
-variable velz atomfile velz.atom
+variable atype atomfile ../type.atom
+variable posx atomfile ../posx.atom
+variable posy atomfile ../posy.atom
+variable posz atomfile ../posz.atom
+variable velx atomfile ../velx.atom
+variable vely atomfile ../vely.atom
+variable velz atomfile ../velz.atom
 set atom * type v_atype
 set atom * x v_posx
 set atom * y v_posy
@@ -133,4 +133,4 @@ dump 1 cell_group xyzSemEM 1000 cell.xyz
 dump 2 ecm_glass xyzSemEM 100000 ecm_glass.xyz
 #dump 3 cell_group custom 100000 dump.atom_info id type x y z vx vy vz
 run 100000
-write_restart cell_mult_nuc.restart
+#write_restart cell_mult_nuc.restart
